@@ -6,8 +6,8 @@ import re
 
 app = Flask(__name__)
 
-# 配置
-API_KEY = os.environ.get('API_KEY', 'your-default-key-here')
+# 配置 - 使用方案1，必须提供API密钥
+API_KEY = os.environ['API_KEY']  # 如果环境变量未设置将直接抛出错误
 ALLOWED_DOMAINS = os.environ.get('ALLOWED_DOMAINS', '*').split(',')
 
 def clean_game_name(name: str) -> str:
@@ -79,9 +79,5 @@ def search():
     except Exception:
         return jsonify({"error": "Server error"}), 500
 
-if __name__ == '__main__':
-    app.run(
-        debug=False,
-        host='0.0.0.0',
-        port=int(os.environ.get('PORT', 5000))
-    )
+# Vercel部署时使用
+app.debug = False
