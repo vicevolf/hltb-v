@@ -1,59 +1,75 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask, jsonify, request
 from howlongtobeatpy import HowLongToBeat
-from typing import Optional, List
-from pydantic import BaseModel
-from mangum import Mangum
 
-app = FastAPI()
+app = Flask(__name__)
 
-# 配置CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def format_game_info(game):
+    """格式化游戏信息"""
+    return {
+        "game_name": game.game_name,
+        "similarity": round(game.similarity, 2),
+        "times": {
+            "main_story": game.main_story,
+            "main_extra": game.main_extra,
+            "completionist": game.completionist,
+        },
+        "metadata": {
+            "platform": game.platform,
+            "release_world": game.release_world,
+            "review_score": game.review_score,
+            "profile_url": game.profile_url
+        }
+    }
 
-class GameTime(BaseModel):
-    game_name: str
-    similarity: float
-    main_story: float
-    main_extra: float
-    completionist: float
-    image_url: Optional[str]
+@app.route('/')
+def home():
+    """API首页"""
+    return jsonify({
+        "status": "ok",
+        "message": "Welcome to HLTB API",
+        "usage": {
+            "search": "/api/search?game=游戏名称",
+            "example": "/api/search?game=Elden Ring"
+        }
+    })
 
-@app.get("/")
-async def read_root():
-    return {"message": "Welcome to HowLongToBeat API"}
+@app.route('/api/search')
+def search():
+    """搜索游戏"""
+    game_name = request.args.get('game')
+    
+    if not game_name:
+        return jsonify({
+            "status": "error",
+            "message": "Missing game parameter"
+        }), 400
 
-@app.get("/search/{game_name}", response_model=List[GameTime])
-async def search_game(game_name: str):
     try:
-        results = await HowLongToBeat().async_search(game_name)
+        results = HowLongToBeat().search(game_name)
         
         if results is None or len(results) == 0:
-            raise HTTPException(status_code=404, detail="Game not found")
+            return jsonify({
+                "status": "error",
+                "message": "Game not found"
+            }), 404
+            
+        # 获取最佳匹配
+        best_match = max(results, key=lambda x: x.similarity)
         
-        game_times = []
-        for game in results:
-            game_times.append(
-                GameTime(
-                    game_name=game.game_name,
-                    similarity=game.similarity,
-                    main_story=game.main_story,
-                    main_extra=game.main_extra,
-                    completionist=game.completionist,
-                    image_url=game.image_url if hasattr(game, 'image_url') else None
-                )
-            )
+        # 获取所有结果（限制为前5个最相关的）
+        all_matches = sorted(results, key=lambda x: x.similarity, reverse=True)[:5]
         
-        game_times.sort(key=lambda x: x.similarity, reverse=True)
-        return game_times[:5]
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return jsonify({
+            "status": "success",
+            "best_match": format_game_info(best_match),
+            "all_matches": [format_game_info(game) for game in all_matches]
+        })
 
-# Mangum处理程序
-handler = Mangum(app, lifespan="off")
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
