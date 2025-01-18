@@ -57,6 +57,8 @@ A short-lived cache minimizes duplicate requests.
 - **404**: Game not found or no match.  
 - **500**: Server error.  
 
+If you encounter an unknown exception, try updating `howlongtobeatpy` in the `requirements.txt` file to the latest version.
+
 ---
 
 ## Based On  
@@ -65,6 +67,6 @@ Built with the [`HowLongToBeat-PythonAPI`](https://github.com/ScrappyCocco/HowLo
 
 ---
 
-### Note  
+## Note  
 
-This is an **unofficial** API. Respect [HowLongToBeat](https://howlongtobeat.com) and its rules to avoid overloading their service.  
+This is an **unofficial** API. Respect [HowLongToBeat](https://howlongtobeat.com) and its rules to avoid overloading their service.
