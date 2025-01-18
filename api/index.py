@@ -30,9 +30,8 @@ def build_response(game_name: str, similarity: float, times: dict, is_cache: boo
         "game_name": game_name,
         "similarity": round(similarity, 2),
         "times": times,
-        "cache": {
-            "source": "cache" if is_cache else "api"
-        }
+        "source": "cache" if is_cache else "api"
+
     }
 
 def require_apikey(f):
