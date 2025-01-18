@@ -3,13 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from howlongtobeatpy import HowLongToBeat
 from typing import Optional, List
 from pydantic import BaseModel
+from mangum import Mangum
 
 app = FastAPI()
 
 # 配置CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 在生产环境中应该设置具体的域名
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,7 +36,6 @@ async def search_game(game_name: str):
         if results is None or len(results) == 0:
             raise HTTPException(status_code=404, detail="Game not found")
         
-        # 转换结果为我们定义的模型
         game_times = []
         for game in results:
             game_times.append(
@@ -49,14 +49,11 @@ async def search_game(game_name: str):
                 )
             )
         
-        # 按相似度排序
         game_times.sort(key=lambda x: x.similarity, reverse=True)
-        
-        return game_times[:5]  # 只返回相似度最高的5个结果
+        return game_times[:5]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 用于Vercel的处理
-from mangum import Mangum
-handler = Mangum(app)
+# Mangum处理程序
+handler = Mangum(app, lifespan="off")
