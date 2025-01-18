@@ -3,17 +3,6 @@ from howlongtobeatpy import HowLongToBeat
 
 app = Flask(__name__)
 
-def format_game_info(game):
-    """格式化游戏信息，只返回确定存在的基本属性"""
-    return {
-        "game_name": game.game_name,
-        "similarity": round(game.similarity, 2),
-        "main_story": game.main_story,
-        "main_extra": game.main_extra,
-        "completionist": game.completionist,
-        "profile_url": game.profile_url
-    }
-
 @app.route('/')
 def home():
     """API首页"""
@@ -38,20 +27,31 @@ def search():
         }), 400
 
     try:
+        # 搜索游戏
         results = HowLongToBeat().search(game_name)
         
+        # 检查是否有结果
         if results is None or len(results) == 0:
             return jsonify({
                 "status": "error",
                 "message": "Game not found"
             }), 404
-            
-        # 获取最佳匹配和所有匹配（限制前5个）
-        all_matches = sorted(results, key=lambda x: x.similarity, reverse=True)[:5]
         
+        # 获取最佳匹配
+        best_match = max(results, key=lambda element: element.similarity)
+        
+        # 返回结果
         return jsonify({
             "status": "success",
-            "results": [format_game_info(game) for game in all_matches]
+            "result": {
+                "game_name": best_match.game_name,
+                "similarity": round(best_match.similarity, 2),
+                "times": {
+                    "main_story": best_match.main_story,
+                    "main_extra": best_match.main_extra,
+                    "completionist": best_match.completionist
+                }
+            }
         })
 
     except Exception as e:
