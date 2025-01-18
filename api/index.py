@@ -1,117 +1,116 @@
 from flask import Flask, jsonify, request
 from howlongtobeatpy import HowLongToBeat
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from flask_cors import CORS
-from flask_caching import Cache
 import os
 from functools import wraps
 import re
+from time import time
+from typing import Dict, Tuple
 
-# 基础配置
 app = Flask(__name__)
 
-API_KEY = os.environ['API_KEY']
+API_KEY = os.environ['API_KEY']  # 如果环境变量未设置将直接抛出错误
 ALLOWED_DOMAINS = os.environ.get('ALLOWED_DOMAINS', '*').split(',')
-SIMILARITY_THRESHOLD = float(os.environ.get('SIMILARITY_THRESHOLD', '0.7'))
 
-# 初始化扩展
-limiter = Limiter(app, key_func=get_remote_address)
-cors = CORS(app, resources={r"/api/*": {"origins": ALLOWED_DOMAINS if ALLOWED_DOMAINS != ['*'] else "*"}})
-cache = Cache(app, config={'CACHE_TYPE': 'simple'})
+# 缓存配置
+CACHE_TIMEOUT = 24 * 60 * 60  # 24小时的秒数
+cache: Dict[str, Tuple[float, dict]] = {}  # {game_name: (timestamp, data)}
 
-def error_response(status_code=400):
-    """统一错误响应，只返回状态码对应的标准信息"""
-    messages = {
-        400: "Bad Request",
-        401: "Unauthorized",
-        404: "Not Found",
-        429: "Too Many Requests",
-        500: "Internal Server Error"
-    }
-    return jsonify({"status": "error", "message": messages.get(status_code, "Error")}), status_code
+def clean_cache() -> None:
+    """清理过期的缓存项"""
+    current_time = time()
+    expired_keys = [
+        k for k, v in cache.items() 
+        if current_time - v[0] > CACHE_TIMEOUT
+    ]
+    for k in expired_keys:
+        del cache[k]
 
 def clean_game_name(name: str) -> str:
     """清理并验证游戏名称"""
     if not isinstance(name, str) or not name:
         return ""
     
+    # 只保留字母、数字、空格、连字符、撇号、冒号
     cleaned = re.sub(r'[^a-zA-Z0-9\s\-\':]', ' ', name)
+    # 合并多个空格为单个空格并去除首尾空格
     cleaned = ' '.join(cleaned.split())
     
-    return cleaned if 2 <= len(cleaned) <= 100 else ""
+    # 检查长度（2-100字符）
+    if len(cleaned) < 2 or len(cleaned) > 100:
+        return ""
+        
+    return cleaned
 
 def require_apikey(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # 验证API密钥
         if request.args.get('key') != API_KEY:
-            return error_response(401)
+            return jsonify({"error": "Unauthorized"}), 401
         
+        # 验证域名
         if ALLOWED_DOMAINS != ['*']:
             origin = request.headers.get('Origin', '')
             if not any(domain in origin for domain in ALLOWED_DOMAINS):
-                return error_response(401)
+                return jsonify({"error": "Unauthorized"}), 401
                 
         return f(*args, **kwargs)
     return decorated_function
 
-@cache.memoize(timeout=3600)
-def fetch_game_data(game_name: str):
-    """获取游戏数据并缓存结果"""
+@app.route('/')
+@require_apikey
+def home():
+    return jsonify({
+        "message": "HLTB unofficial API",
+        "example": "/api/search?key=YOUR_API_KEY&game=Elden Ring"
+    })
+
+@app.route('/api/search')
+@require_apikey
+def search():
+    # 清理和验证游戏名称
+    game_name = clean_game_name(request.args.get('game', ''))
+    if not game_name:
+        return jsonify({"error": "Invalid game name"}), 400
+
+    # 清理过期缓存
+    clean_cache()
+
+    # 检查缓存
+    cache_entry = cache.get(game_name)
+    if cache_entry:
+        timestamp, data = cache_entry
+        if time() - timestamp <= CACHE_TIMEOUT:
+            # 添加缓存命中标记
+            data['cache_hit'] = True
+            return jsonify(data)
+
     try:
         results = HowLongToBeat().search(game_name)
+        
         if not results:
-            return None
+            return jsonify({"error": "Game not found"}), 404
         
         best_match = max(results, key=lambda x: x.similarity)
         
-        if best_match.similarity < SIMILARITY_THRESHOLD:
-            return None
-            
-        return {
+        response_data = {
             "game_name": best_match.game_name,
             "similarity": round(best_match.similarity, 2),
             "times": {
                 "main_story": best_match.main_story,
                 "main_extra": best_match.main_extra,
                 "completionist": best_match.completionist
-            }
+            },
+            "cache_hit": False
         }
+
+        # 存储到缓存
+        cache[game_name] = (time(), response_data)
+
+        return jsonify(response_data)
+
     except Exception:
-        return None
+        return jsonify({"error": "Server error"}), 500
 
-@app.route('/')
-@require_apikey
-@limiter.limit("20/minute")
-def home():
-    return jsonify({
-        "status": "ok",
-        "message": "HLTB API"
-    })
-
-@app.route('/api/search')
-@require_apikey
-@limiter.limit("30/minute")
-def search():
-    game_name = clean_game_name(request.args.get('game', ''))
-    if not game_name:
-        return error_response(400)
-
-    result = fetch_game_data(game_name)
-    if result is None:
-        return error_response(404)
-    
-    return jsonify({"status": "ok", "data": result})
-
-@app.errorhandler(Exception)
-def handle_error(error):
-    """统一错误处理"""
-    if isinstance(error, Limiter.RateLimitExceeded):
-        return error_response(429)
-    
-    return error_response(500)
-
+# Vercel部署时使用
 app.debug = False
-
-if __name__ == '__main__':
-    app.run()
