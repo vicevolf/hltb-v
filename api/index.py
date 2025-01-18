@@ -1,23 +1,49 @@
 from flask import Flask, jsonify, request
 from howlongtobeatpy import HowLongToBeat
+import os
+from functools import wraps
 
 app = Flask(__name__)
 
+# 从环境变量获取配置
+API_KEY = os.environ.get('API_KEY', 'your-default-key-here')
+ALLOWED_DOMAINS = os.environ.get('ALLOWED_DOMAINS', '*').split(',')
+
+def require_apikey(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 检查API密钥
+        provided_key = request.args.get('key')
+        if not provided_key or provided_key != API_KEY:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        
+        # 检查来源域名 (如果不是'*')
+        if ALLOWED_DOMAINS != ['*']:
+            origin = request.headers.get('Origin', '')
+            if not any(domain in origin for domain in ALLOWED_DOMAINS):
+                return jsonify({"status": "error", "message": "Unauthorized"}), 401
+                
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/')
+@require_apikey
 def home():
     """API首页"""
     return jsonify({
         "status": "ok",
         "message": "Welcome to HLTB API",
         "usage": {
-            "search": "/api/search?game=游戏名称",
-            "example": "/api/search?game=Elden Ring"
+            "search": "/api/search?key=YOUR_API_KEY&game=游戏名称",
+            "example": "/api/search?key=YOUR_API_KEY&game=Elden Ring"
         }
     })
 
 @app.route('/api/search')
+@require_apikey
 def search():
     """搜索游戏"""
+    # 原有的搜索逻辑保持不变
     game_name = request.args.get('game')
     
     if not game_name:
@@ -27,20 +53,16 @@ def search():
         }), 400
 
     try:
-        # 搜索游戏
         results = HowLongToBeat().search(game_name)
         
-        # 检查是否有结果
         if results is None or len(results) == 0:
             return jsonify({
                 "status": "error",
                 "message": "Game not found"
             }), 404
         
-        # 获取最佳匹配
         best_match = max(results, key=lambda element: element.similarity)
         
-        # 返回结果
         return jsonify({
             "status": "success",
             "result": {
@@ -57,7 +79,7 @@ def search():
     except Exception as e:
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "Internal server error"
         }), 500
 
 if __name__ == '__main__':
