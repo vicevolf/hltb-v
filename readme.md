@@ -1,4 +1,4 @@
-# HLTB Unofficial API
+# HLTB Unofficial API - Vercel
 
 An **unofficial API** for [HowLongToBeat](https://howlongtobeat.com), built with Python Flask on Vercel. It is designed to help dedicated gamers explore and track game completion times, enhancing their overall gaming experience.
 
@@ -6,7 +6,7 @@ An **unofficial API** for [HowLongToBeat](https://howlongtobeat.com), built with
 
 ## Usage
 
-### 1. Search Endpoint  
+### Search Endpoint  
 
 **GET** `/api/search`  
 
@@ -14,27 +14,26 @@ An **unofficial API** for [HowLongToBeat](https://howlongtobeat.com), built with
   - `key` (**required**): Your API key.  
   - `game` (**required**): The game name to search.  
 
-- **Example:**  
-  ```
-  https://example.vercel.app/api/search?key=YOUR_API_KEY&game=Outer Wilds
-  ```
+- **Example:**
+  
+```
+GET https://example.vercel.app/api/search?key=YOUR_API_KEY&game=Outer Wilds
+```
 
 - **Response:**  
-  ```json
+
+```json
 {
-  "cache": {
-    "source": "api"
-  },
   "game_name": "Outer Wilds",
   "similarity": 1,
+  "source": "api",
   "times": {
     "completionist": 27.84,
     "main_extra": 22.31,
     "main_story": 16.96
   }
 }
-
-  ```
+```
 
 ---
 
