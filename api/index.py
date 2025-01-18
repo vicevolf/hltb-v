@@ -81,8 +81,12 @@ def search():
     if cache_entry:
         timestamp, data = cache_entry
         if time() - timestamp <= CACHE_TIMEOUT:
-            # 添加缓存命中标记
-            data['cache_hit'] = True
+            # 添加缓存信息
+            data.update({
+                "source": "cache",
+                "message": "Data retrieved from cache",
+                "cache_expires_in": int(CACHE_TIMEOUT - (time() - timestamp))
+            })
             return jsonify(data)
 
     try:
@@ -101,7 +105,9 @@ def search():
                 "main_extra": best_match.main_extra,
                 "completionist": best_match.completionist
             },
-            "cache_hit": False
+            "source": "api",
+            "message": "Data freshly fetched from HLTB",
+            "cache_expires_in": CACHE_TIMEOUT
         }
 
         # 存储到缓存
