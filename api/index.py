@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 API_KEY = os.environ['API_KEY']
 ALLOWED_DOMAINS = os.environ.get('ALLOWED_DOMAINS', '*').split(',')
-SIMILARITY_THRESHOLD = 0.7
+SIMILARITY_THRESHOLD = 0.6
 
 # 简化的缓存，只存储响应数据
 cache: Dict[str, dict] = {}
