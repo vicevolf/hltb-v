@@ -15,12 +15,14 @@ SIMILARITY_THRESHOLD = 0.7
 cache: Dict[str, dict] = {}
 
 def clean_game_name(name: str) -> str:
-    """清理并验证游戏名称"""
+    """清理并验证游戏名称，转换为标题格式"""
     if not isinstance(name, str) or not name:
         return ""
-    
+
     cleaned = re.sub(r'[^a-zA-Z0-9\s\-\':]', ' ', name)
-    cleaned = ' '.join(cleaned.split())
+    
+    # 清理多余空格并转换为标题格式
+    cleaned = ' '.join(cleaned.split()).title()
     
     return cleaned if 2 <= len(cleaned) <= 100 else ""
 
