@@ -1,72 +1,104 @@
-# HLTB Unofficial API - Vercel
+# HLTB API
 
-An **unofficial API** for [HowLongToBeat](https://howlongtobeat.com), built with Python Flask on Vercel. It is designed to help dedicated gamers explore and track game completion times, enhancing their overall gaming experience.
+基于 HowLongToBeat 的游戏时长查询 API 服务。
 
----
+## 接入方式
 
-## Usage
+### 接口地址
 
-### Search Endpoint  
-
-**GET** `/api/search`  
-
-- **Parameters:**  
-  - `key` (**required**): Your API key.  
-  - `game` (**required**): The game name to search.  
-
-- **Example:**
-  
 ```
-GET https://example.vercel.app/api/search?key=YOUR_API_KEY&game=Outer Wilds
+GET /api/search
 ```
 
-- **Response:**  
+### 请求参数
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| key | string | 是 | API 密钥 |
+| game | string | 是 | 游戏名称（2-200字符） |
+
+### 请求示例
+
+```bash
+curl "https://your-api-domain.com/api/search?key=YOUR_API_KEY&game=Elden%20Ring"
+```
+
+## 输出格式
+
+### 成功响应 (200)
 
 ```json
 {
-  "game_name": "Outer Wilds",
-  "similarity": 1,
-  "source": "api",
-  "times": {
-    "completionist": 27.84,
-    "main_extra": 22.31,
-    "main_story": 16.96
-  }
+  "matched_name": "Elden Ring",
+  "similarity": 0.98,
+  "main_story": 54.5,
+  "main_extra": 101.5,
+  "completionist": 135.0,
+  "all_styles": 97.0
 }
 ```
 
----
+**字段说明：**
 
-## Configuration
+- `matched_name`: 匹配到的游戏名称
+- `similarity`: 相似度（0-1之间，阈值为0.6）
+- `main_story`: 主线时长（小时）
+- `main_extra`: 主线+支线时长（小时）
+- `completionist`: 完美主义时长（小时）
+- `all_styles`: 全风格平均时长（小时）
 
-### Environment Variables  
+> 注：时长字段可能为 `null`，表示该类型数据不可用
 
-- `API_KEY` (**required**): A secure, complex key for request authentication.  
-- `ALLOWED_DOMAINS` (*optional*): Restricts requests to specific domains (default: `*` for all).  
+### 错误响应
 
-### Caching
+#### 401 未授权
+```json
+{
+  "error": "Unauthorized"
+}
+```
 
-A short-lived cache minimizes duplicate requests.  
+#### 400 参数错误
+```json
+{
+  "error": "Invalid game name"
+}
+```
 
----
+#### 404 未找到
+```json
+{
+  "error": "Game not found"
+}
+```
+或
+```json
+{
+  "error": "No close match found"
+}
+```
 
-## Error Codes  
+#### 503 服务不可用
+```json
+{
+  "error": "HLTB service unavailable",
+  "detail": "网络不稳定，请稍后重试"
+}
+```
 
-- **400**: Invalid or missing game name.  
-- **401**: Unauthorized (invalid API key or domain restriction).  
-- **404**: Game not found or no match.  
-- **500**: Server error.  
+## 特性
 
-If you encounter an unknown exception, try updating `howlongtobeatpy` in the `requirements.txt` file to the latest version.
+- **智能搜索**：自动尝试多种搜索策略（原名、标准化名称、移除副标题）
+- **自动重试**：最多重试 3 次，应对网络波动
+- **括号过滤**：自动移除游戏名中的括号内容，提高匹配率
+- **相似度匹配**：相似度阈值 0.6，确保结果准确性
 
----
+## 环境变量
 
-## Based On  
+| 变量名 | 说明 |
+|--------|------|
+| API_KEY | API 访问密钥（必填） |
 
-Built with the [`HowLongToBeat-PythonAPI`](https://github.com/ScrappyCocco/HowLongToBeat-PythonAPI) by **@ScrappyCocco**.  
+## 部署
 
----
-
-## Note  
-
-This is an **unofficial** API. Respect [HowLongToBeat](https://howlongtobeat.com) and its rules to avoid overloading their service.
+本项目基于 Vercel Serverless 部署，配置文件见 `vercel.json`。
