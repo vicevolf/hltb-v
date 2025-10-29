@@ -1,6 +1,6 @@
 # HLTB API
 
-基于 HowLongToBeat 的游戏时长查询 API 服务。
+一个基于 HowLongToBeat 的游戏时长查询 API 服务。
 
 ## 接入方式
 
